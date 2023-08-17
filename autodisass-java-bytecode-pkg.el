@@ -1,1 +1,1 @@
-(define-package "autodisass-java-bytecode" "1.3" "Automatically disassemble Java bytecode" 'nil)
+(define-package "autodisass-java-bytecode" "1.4.1" "Automatically disassemble Java bytecode" 'nil)

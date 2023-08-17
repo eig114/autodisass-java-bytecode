@@ -3,9 +3,9 @@
 ;; Copyright (C) 2014, George Balatsouras
 ;;
 ;; Author: George Balatsouras <gbalats(at)gmail(dot)com>
-;; Maintainer: George Balatsouras <gbalats(at)gmail(dot)com>
+;; Maintainer: Ivan Tudiyarov <eig114(at)gmail(dot)com>
 ;; Created: 22 Jun 2014
-;; Version: 1.3
+;; Version: 1.3.1
 ;; Keywords: convenience, data, files
 ;;
 ;; This file is NOT part of Emacs.
@@ -34,22 +34,22 @@
 ;; This package enables automatic disassembly of Java bytecode.
 ;;
 ;; It was inspired by a blog post of Christopher Wellons:
-;;    http://nullprogram.com/blog/2012/08/01/
+;;    https://nullprogram.com/blog/2012/08/01/
 ;;
 ;; Disassembly can happen in two cases:
 ;; (a) when opening a Java .class file
 ;; (b) when disassembling a .class file inside a jar
 ;;
-;; In any case, `javap' must be installed in the system for this
-;; extension to have any effect, since that is the tool that actually
-;; performs the disassembly.
+;; In any case, `javap' or another disassembler must be installed in
+;; the system for this extension to have any effect, since that is the
+;; tool that actually performs the disassembly.
 
 ;;; Code:
 
 
 (require 'ad-javap-mode)
 
-(defconst autodisass-java-bytecode-version "1.3")
+(defconst autodisass-java-bytecode-version "1.3.1")
 
 (defgroup autodisass-java-bytecode nil
   "Automatic disassembly of Java bytecode."
@@ -87,6 +87,67 @@ output stream."
   :group 'autodisass-java-bytecode
   :type 'boolean)
 
+(defcustom ad-java-bytecode-arg-formatter
+  #'ad-java-javap-format-args
+  "Function to format command line arguments for disassembler"
+  :tag "Command line options formatter"
+  :group 'autodisass-java-bytecode
+  :type 'function)
+
+(defcustom ad-java-disassembler-mode
+  #'ad-javap-mode
+  "Function to set mode in disassembled class buffer"
+  :tag "Mode setter"
+  :group 'autodisass-java-bytecode
+  :type 'function)
+
+
+;; javap-specific
+(defun ad-java-javap-class-name (class-file)
+  "Return the corresponding CLASS-NAME of a CLASS-FILE."
+  (replace-regexp-in-string
+   "/" "." (file-name-sans-extension class-file)))
+
+(defun ad-java-javap-format-args (class-file &optional jar-file)
+  (let ((class-name  (ad-java-javap-class-name class-file))
+        (class-path  (or jar-file (file-name-directory class-file))))
+    (append ad-java-bytecode-parameters
+            (list "-classpath" class-path
+                  (if jar-file class-name class-file)))))
+
+;;;###autoload
+(defun ad-java-disassembler-setup-javap ()
+  "Setup autodisass java mode to use javap as disassembler"
+  (interactive)
+  (setq ad-java-bytecode-disassembler "javap"
+        ad-java-disassembler-arg-formatter #'ad-java-javap-format-args
+        ad-java-disassembler-mode #'ad-javap-mode))
+
+;; cfr-specific
+(defun ad-java-cfr-normalize-class-name (class-name)
+  "Return the corresponding CLASS-NAME of a CLASS-FILE."
+  ;; replace slashes with dots, remove dollar-suffix and extension
+  (replace-regexp-in-string
+   "\\(\\$.*\\)?\\.class$" ""
+   (string-replace
+    "/" "."
+    class-file)))
+
+(defun ad-java-cfr-format-args (class-file &optional jar-file)
+  (if jar-file
+      (list jar-file "--jarfilter" (ad-java-cfr-normalize-class-name class-file))
+    (list class-file)))
+
+;;;###autoload
+(defun ad-java-disassembler-setup-cfr ()
+  "Setup autodisass java mode to use cfr as disassembler"
+  (interactive)
+  (setq ad-java-bytecode-disassembler "cfr"
+        ad-java-disassembler-arg-formatter #'ad-java-cfr-format-args
+        ad-java-disassembler-mode #'java-mode))
+
+;; fernflower-specific
+;; TODO
 
 (defun ad-java-bytecode-disassemble-p (file)
   "Return t if automatic disassembly should be performed for FILE."
@@ -97,19 +158,8 @@ output stream."
                              ad-java-bytecode-disassembler)))))
 
 
-(defun ad-java-bytecode-class-name (class-file)
-  "Return the corresponding CLASS-NAME of a CLASS-FILE."
-  (replace-regexp-in-string
-   "/" "." (file-name-sans-extension class-file)))
-
-
 (defun ad-java-bytecode-buffer (class-file &optional jar-file)
-  "Disassembles a Java CLASS-FILE inside the current buffer, using `javap'.
-The JAR-FILE argument is non-nil if the disassembly is happening
-inside a jar archive, during auto-extraction."
-  (let ((class-name  (ad-java-bytecode-class-name class-file))
-        (class-path  (or jar-file (file-name-directory class-file)))
-        (orig-buffer-name      (buffer-name))
+  (let ((orig-buffer-name      (buffer-name))
         (orig-buffer-file-name (buffer-file-name)))
     ;; kill previous buffer
     (kill-buffer orig-buffer-name)
@@ -118,16 +168,14 @@ inside a jar archive, during auto-extraction."
     (message "Disassembling %s" class-file)
     ;; disassemble .class file
     (apply 'call-process ad-java-bytecode-disassembler nil t nil
-           (append ad-java-bytecode-parameters
-                   (list "-classpath" class-path
-                         (if jar-file class-name class-file))))
+           (funcall ad-java-disassembler-arg-formatter class-file jar-file))
     ;; set some properties
     (set-visited-file-name nil)
     (setq buffer-file-name orig-buffer-file-name)
     (setq buffer-read-only t)           ; mark as modified
     (set-buffer-modified-p nil)         ; mark as read-only
     (goto-char (point-min))             ; jump to top
-    (ad-javap-mode)
+    (funcall ad-java-disassembler-mode) ; set correct mode
     (message "Disassembled %s" class-file)
     (current-buffer)))
 
