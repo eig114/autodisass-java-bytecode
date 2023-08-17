@@ -36,6 +36,24 @@ Alternatively, you can save
 *load-path*, and add the following to your `.emacs`:
 
     (require 'autodisass-java-bytecode)
+    
+## Disassembler settings
+
+By default this mode uses `javap` do disassemble byte-code and
+built-in `ad-javap-mode` to view disassebmled output.
+
+Hovewer, it can be configured to use modern decompilers such as
+[CFR](https://github.com/leibnitz27/cfr) or
+[Fernflower](https://github.com/JetBrains/intellij-community/tree/master/plugins/java-decompiler/engine)
+
+To do this, you need to configure following customization options:
+- `ad-java-bytecode-arg-formatter` - Function to assemble list of arguments for disassembler invocation.
+- `ad-java-disassembler-mode` - Function to run after disassembly was done, ususally mode-setting 
+
+Currently provided convinience functions
+`ad-java-disassembler-setup-cfr` and
+`ad-java-disassembler-setup-javap` 
+to quickly switch between CFR and javap.
 
 [badge-license]: https://img.shields.io/badge/license-GPL_3-green.svg
 [melpa-badge]: http://melpa.org/packages/autodisass-java-bytecode-badge.svg
