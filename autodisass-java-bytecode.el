@@ -72,14 +72,12 @@ output stream."
   :group 'autodisass-java-bytecode
   :type 'string)
 
-
 (defcustom ad-java-bytecode-parameters
   '("-private" "-verbose")
   "Extra parameters for the disassembler process."
   :tag "Command line options"
   :group 'autodisass-java-bytecode
   :type '(repeat string))
-
 
 (defcustom ad-java-bytecode-prompt t
   "Prompt before disassembling. If false, will automatically disassemble."
@@ -103,6 +101,9 @@ output stream."
 
 
 ;; javap-specific
+(defvar ad-java--javap-exec-history (list "javap"))
+(defvar ad-java--javap-params-history (list (format "%S" '("-private" "-verbose"))))
+
 (defun ad-java-javap-class-name (class-file)
   "Return the corresponding CLASS-NAME of a CLASS-FILE."
   (replace-regexp-in-string
@@ -115,15 +116,26 @@ output stream."
             (list "-classpath" class-path
                   (if jar-file class-name class-file)))))
 
+
 ;;;###autoload
-(defun ad-java-disassembler-setup-javap ()
+(defun ad-java-disassembler-setup-javap (javap-exec javap-params)
   "Setup autodisass java mode to use javap as disassembler"
-  (interactive)
-  (setq ad-java-bytecode-disassembler "javap"
+  (interactive (list (read-from-minibuffer "javap command: " (car ad-java--javap-exec-history)
+                                           nil nil
+                                           'ad-java--javap-exec-history)
+                     (read-from-minibuffer "javap command arglist: " (car ad-java--javap-params-history)
+                                           nil t
+                                           'ad-java--javap-params-history
+                                           "nil")))
+  (setq ad-java-bytecode-disassembler javap-exec
         ad-java-disassembler-arg-formatter #'ad-java-javap-format-args
-        ad-java-disassembler-mode #'ad-javap-mode))
+        ad-java-disassembler-mode #'ad-javap-mode
+        ad-java-bytecode-parameters javap-params))
 
 ;; cfr-specific
+(defvar ad-java--cfr-exec-history (list "java -jar cfr.jar"))
+(defvar ad-java--cfr-params-history nil)
+
 (defun ad-java-cfr-normalize-class-name (class-name)
   "Return the corresponding CLASS-NAME of a CLASS-FILE."
   ;; replace slashes with dots, remove dollar-suffix and extension
@@ -134,20 +146,31 @@ output stream."
     class-file)))
 
 (defun ad-java-cfr-format-args (class-file &optional jar-file)
-  (if jar-file
-      (list jar-file "--jarfilter" (ad-java-cfr-normalize-class-name class-file))
-    (list class-file)))
+  (append (if jar-file
+              (list jar-file "--jarfilter" (ad-java-cfr-normalize-class-name class-file))
+            (list class-file))
+          ad-java-bytecode-parameters))
 
 ;;;###autoload
-(defun ad-java-disassembler-setup-cfr ()
+(defun ad-java-disassembler-setup-cfr (cfr-exec cfr-params)
   "Setup autodisass java mode to use cfr as disassembler"
-  (interactive)
-  (setq ad-java-bytecode-disassembler "cfr"
+  (interactive (list (read-from-minibuffer "cfr command: " (car ad-java--cfr-exec-history)
+                                           nil nil
+                                           'ad-java--cfr-exec-history)
+                     (read-from-minibuffer "cfr command arglist: " (car ad-java--cfr-params-history)
+                                           nil t
+                                           'ad-java--cfr-params-history
+                                           "nil")))
+  (setq ad-java-bytecode-disassembler cfr-exec
         ad-java-disassembler-arg-formatter #'ad-java-cfr-format-args
-        ad-java-disassembler-mode #'java-mode))
+        ad-java-disassembler-mode #'java-mode
+        ad-java-bytecode-parameters cfr-params))
 
 ;; fernflower-specific
-;; TODO
+;;TODO
+;; The problem with fernflower is that it refuses to output to stdout,
+;; and jar files are decompiled to jar files with sources replacing
+;; classes, so normal approach is not applicable.
 
 (defun ad-java-bytecode-disassemble-p (file)
   "Return t if automatic disassembly should be performed for FILE."
