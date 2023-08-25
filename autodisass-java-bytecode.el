@@ -40,9 +40,9 @@
 ;; (a) when opening a Java .class file
 ;; (b) when disassembling a .class file inside a jar
 ;;
-;; In any case, `javap' or another disassembler must be installed in
-;; the system for this extension to have any effect, since that is the
-;; tool that actually performs the disassembly.
+;; In any case, `javap' or another disassembler/decompiler must be
+;; installed in the system for this extension to have any effect,
+;; since that is the tool that actually performs the disassembly.
 
 ;;; Code:
 
@@ -133,8 +133,8 @@ output stream."
         ad-java-bytecode-parameters javap-params))
 
 ;; cfr-specific
-(defvar ad-java--cfr-exec-history (list "java -jar cfr.jar"))
-(defvar ad-java--cfr-params-history nil)
+(defvar ad-java--cfr-exec-history '("java"))
+(defvar ad-java--cfr-params-history '("(\"-jar\" \"cfr.jar\")"))
 
 (defun ad-java-cfr-normalize-class-name (class-name)
   "Return the corresponding CLASS-NAME of a CLASS-FILE."
@@ -147,14 +147,17 @@ output stream."
 
 (defun ad-java-cfr-format-args (class-file &optional jar-file)
   (append (if jar-file
-              (list jar-file "--jarfilter" (ad-java-cfr-normalize-class-name class-file))
+              ;; jarfilter accepts regex, but we need to match classname exactly
+              (list jar-file "--jarfilter" (concat "^"
+                                                   (regexp-quote (ad-java-cfr-normalize-class-name class-file))
+                                                   "$"))
             (list class-file))
           ad-java-bytecode-parameters))
 
 ;;;###autoload
 (defun ad-java-disassembler-setup-cfr (cfr-exec cfr-params)
   "Setup autodisass java mode to use cfr as disassembler"
-  (interactive (list (read-from-minibuffer "cfr command: " (car ad-java--cfr-exec-history)
+  (interactive (list (read-from-minibuffer "cfr executable: " (car ad-java--cfr-exec-history)
                                            nil nil
                                            'ad-java--cfr-exec-history)
                      (read-from-minibuffer "cfr command arglist: " (car ad-java--cfr-params-history)
