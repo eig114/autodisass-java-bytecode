@@ -213,7 +213,8 @@ output stream."
                          (ad-java-bytecode-buffer class-file)))))
 
 ;; Add hook for automatically disassembling .class files inside jars
-(add-hook 'archive-extract-hooks
+
+(add-hook 'archive-extract-hook
           (lambda ()
             (let* ((components (split-string (buffer-file-name) ":"))
                    (jar-file   (car components))
